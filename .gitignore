@@ -1,0 +1,8 @@
+# 个人代理配置可能包含内网地址和域名，不上传。
+/config.json
+
+# 本地发布检查工具与临时文件。
+/.release-updater/
+/tests/config.test.tmp.json
+*.tmp
+*.log
