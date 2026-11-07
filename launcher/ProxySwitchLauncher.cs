@@ -6,22 +6,65 @@ using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Windows Proxy Switch")]
 [assembly: AssemblyProduct("Windows Proxy Switch")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 namespace ProxySwitchLauncher
 {
     internal static class Program
     {
+        private static void ExtractPayload(string runtimeDirectory)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            string[] resourceNames =
+            {
+                "ProxySwitch.ps1",
+                "ProxySwitch.Core.ps1",
+                "VERSION",
+                "assets/proxy-on.ico",
+                "assets/proxy-off.ico"
+            };
+
+            foreach (string resourceName in resourceNames)
+            {
+                string relativePath = resourceName.Replace('/', Path.DirectorySeparatorChar);
+                string destinationPath = Path.Combine(runtimeDirectory, relativePath);
+                string destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!Directory.Exists(destinationDirectory))
+                {
+                    Directory.CreateDirectory(destinationDirectory);
+                }
+
+                using (Stream input = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (input == null)
+                    {
+                        throw new InvalidOperationException("缺少内嵌资源：" + resourceName);
+                    }
+
+                    using (FileStream output = File.Create(destinationPath))
+                    {
+                        input.CopyTo(output);
+                    }
+                }
+            }
+        }
+
         [STAThread]
         private static void Main(string[] args)
         {
             string instanceKey = "Default";
-            for (int index = 0; index < args.Length - 1; index++)
+            bool smokeTest = false;
+            for (int index = 0; index < args.Length; index++)
             {
-                if (args[index] == "--instance-key")
+                if (args[index] == "--instance-key" && index + 1 < args.Length)
                 {
                     instanceKey = args[index + 1];
+                    index++;
+                }
+                else if (args[index] == "--smoke-test")
+                {
+                    smokeTest = true;
                 }
             }
 
@@ -43,49 +86,40 @@ namespace ProxySwitchLauncher
                 return;
             }
 
-            string mutexName = @"Local\ProxyServerSwitch-" + instanceKey + ".SingleInstance";
-            string eventName = @"Local\ProxyServerSwitch-" + instanceKey + ".ShowWindow";
-            System.Threading.EventWaitHandle showWindowEvent = null;
-            System.Threading.Mutex instanceMutex = null;
-            bool ownsMutex = false;
-
+            string runtimeDirectory = null;
             try
             {
-                showWindowEvent = new System.Threading.EventWaitHandle(
-                    false,
-                    System.Threading.EventResetMode.AutoReset,
-                    eventName);
-
-                bool createdNew;
-                instanceMutex = new System.Threading.Mutex(true, mutexName, out createdNew);
-                if (!createdNew)
-                {
-                    showWindowEvent.Set();
-                    return;
-                }
-                ownsMutex = true;
-
                 string baseDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                string scriptPath = Path.Combine(baseDirectory, "ProxySwitch.ps1");
-                if (!File.Exists(scriptPath))
-                {
-                    MessageBox.Show(
-                        "无法找到主程序文件：\n" + scriptPath,
-                        "Windows 代理开关",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    return;
-                }
+                runtimeDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "ProxyServerSwitch-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(runtimeDirectory);
+                ExtractPayload(runtimeDirectory);
 
+                string scriptPath = Path.Combine(runtimeDirectory, "ProxySwitch.ps1");
+                string configPath = Path.Combine(baseDirectory, "config.json");
+                string eventName = @"Local\ProxyServerSwitch-" + instanceKey + ".ShowWindow";
+                string mutexName = @"Local\ProxyServerSwitch-" + instanceKey + ".SingleInstance";
                 string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
                 string powerShellPath = Path.Combine(
                     windowsDirectory,
                     @"System32\WindowsPowerShell\v1.0\powershell.exe");
 
+                string arguments =
+                    "-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden" +
+                    " -File \"" + scriptPath + "\"" +
+                    " -ShowWindowEventName \"" + eventName + "\"" +
+                    " -SingleInstanceMutexName \"" + mutexName + "\"" +
+                    " -ConfigurationPath \"" + configPath + "\"";
+                if (smokeTest)
+                {
+                    arguments += " -SmokeTest";
+                }
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = powerShellPath,
-                    Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File \"" + scriptPath + "\" -ShowWindowEventName \"" + eventName + "\"",
+                    Arguments = arguments,
                     WorkingDirectory = baseDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -110,23 +144,16 @@ namespace ProxySwitchLauncher
             }
             finally
             {
-                if (ownsMutex && instanceMutex != null)
+                if (runtimeDirectory != null)
                 {
                     try
                     {
-                        instanceMutex.ReleaseMutex();
+                        Directory.Delete(runtimeDirectory, true);
                     }
                     catch
                     {
+                        // 临时目录清理失败不影响已经退出的程序。
                     }
-                }
-                if (instanceMutex != null)
-                {
-                    instanceMutex.Dispose();
-                }
-                if (showWindowEvent != null)
-                {
-                    showWindowEvent.Dispose();
                 }
             }
         }

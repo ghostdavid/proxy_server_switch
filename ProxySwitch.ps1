@@ -1,9 +1,15 @@
 ﻿param(
     [switch]$SmokeTest,
-    [string]$ShowWindowEventName = 'Local\ProxyServerSwitch-Default.ShowWindow'
+    [string]$ShowWindowEventName = 'Local\ProxyServerSwitch-Default.ShowWindow',
+    [string]$SingleInstanceMutexName = 'Local\ProxyServerSwitch-Default.SingleInstance',
+    [string]$ConfigurationPath
 )
 
 Set-StrictMode -Version 2.0
+
+$script:ShowWindowEvent = $null
+$script:InstanceMutex = $null
+$script:OwnsInstanceMutex = $false
 
 try {
     Add-Type -AssemblyName System.Windows.Forms
@@ -15,7 +21,24 @@ try {
         [System.Threading.EventResetMode]::AutoReset,
         $ShowWindowEventName
     )
-    $script:ConfigPath = Join-Path $PSScriptRoot 'config.json'
+    $createdNew = $false
+    $script:InstanceMutex = [System.Threading.Mutex]::new(
+        $true,
+        $SingleInstanceMutexName,
+        [ref]$createdNew
+    )
+    if (-not $createdNew) {
+        $script:ShowWindowEvent.Set()
+        return
+    }
+    $script:OwnsInstanceMutex = $true
+
+    if ([string]::IsNullOrWhiteSpace($ConfigurationPath)) {
+        $script:ConfigPath = Join-Path $PSScriptRoot 'config.json'
+    }
+    else {
+        $script:ConfigPath = [System.IO.Path]::GetFullPath($ConfigurationPath)
+    }
     $script:ApplicationVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw -Encoding UTF8).Trim()
     $script:IsDirty = $false
     $script:IsExiting = $false
@@ -413,7 +436,6 @@ try {
         $statusTimer.Dispose()
         $instanceTimer.Stop()
         $instanceTimer.Dispose()
-        $script:ShowWindowEvent.Dispose()
         $notifyIcon.Visible = $false
         $notifyIcon.Dispose()
         $trayMenu.Dispose()
@@ -428,7 +450,6 @@ try {
     $statusTimer.Dispose()
     $instanceTimer.Stop()
     $instanceTimer.Dispose()
-    $script:ShowWindowEvent.Dispose()
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
     $trayMenu.Dispose()
@@ -449,4 +470,20 @@ catch {
         Write-Error $_
     }
     exit 1
+}
+finally {
+    if ($script:OwnsInstanceMutex -and $null -ne $script:InstanceMutex) {
+        try {
+            $script:InstanceMutex.ReleaseMutex()
+        }
+        catch {
+            # 实例已经异常退出时，无需再次报告释放失败。
+        }
+    }
+    if ($null -ne $script:InstanceMutex) {
+        $script:InstanceMutex.Dispose()
+    }
+    if ($null -ne $script:ShowWindowEvent) {
+        $script:ShowWindowEvent.Dispose()
+    }
 }

@@ -45,7 +45,7 @@ function Get-VisibleWindows {
 }
 
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$launcherPath = Join-Path $root 'Start-ProxySwitch.exe'
+$launcherPath = Join-Path $root 'release\Start-ProxySwitch.exe'
 $instanceKey = [System.Guid]::NewGuid().ToString('N')
 $eventName = "Local\ProxyServerSwitch-$instanceKey.ShowWindow"
 $firstLauncher = $null

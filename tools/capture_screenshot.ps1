@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version 2.0
+Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.Drawing
@@ -57,9 +57,12 @@ try {
     $tempScript = Join-Path $tempRoot 'ProxySwitch.ps1'
     [System.IO.File]::WriteAllText($tempScript, $source, $utf8)
 
+    $instanceKey = [System.Guid]::NewGuid().ToString('N')
     $arguments = @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA',
-        '-WindowStyle', 'Hidden', '-File', ('"{0}"' -f $tempScript)
+        '-WindowStyle', 'Hidden', '-File', ('"{0}"' -f $tempScript),
+        '-ShowWindowEventName', "Local\ProxyServerSwitch-$instanceKey.ShowWindow",
+        '-SingleInstanceMutexName', "Local\ProxyServerSwitch-$instanceKey.SingleInstance"
     )
     $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -PassThru
 
