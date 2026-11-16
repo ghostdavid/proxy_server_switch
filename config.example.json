@@ -1,0 +1,11 @@
+{
+  "ProxyAddress": "192.0.2.10",
+  "ProxyPort": 8080,
+  "BypassAddresses": [
+    "localhost",
+    "127.*",
+    "192.168.*",
+    "*.example.com"
+  ],
+  "BypassLocal": true
+}
