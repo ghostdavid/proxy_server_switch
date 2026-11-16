@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -Namespace ProxySwitch.Capture -Name NativeMethods -MemberDefinition @'
 [DllImport("user32.dll")]
-public static extern bool GetWindowRect(System.IntPtr hWnd, out RECT lpRect);
+public static extern bool GetClientRect(System.IntPtr hWnd, out RECT lpRect);
 [DllImport("user32.dll")]
 public static extern bool SetForegroundWindow(System.IntPtr hWnd);
 [DllImport("user32.dll")]
@@ -87,19 +87,22 @@ try {
     Start-Sleep -Milliseconds 1200
 
     $rect = New-Object ProxySwitch.Capture.NativeMethods+RECT
-    if (-not [ProxySwitch.Capture.NativeMethods]::GetWindowRect($handle, [ref]$rect)) {
-        throw 'Unable to read the main window bounds.'
+    if (-not [ProxySwitch.Capture.NativeMethods]::GetClientRect($handle, [ref]$rect)) {
+        throw 'Unable to read the main window client bounds.'
     }
 
     $width = $rect.Right - $rect.Left
     $height = $rect.Bottom - $rect.Top
+    if ($width -le 0 -or $height -le 0) {
+        throw 'The main window client bounds are empty.'
+    }
     $bitmap = New-Object System.Drawing.Bitmap($width, $height)
     try {
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         try {
             $hdc = $graphics.GetHdc()
             try {
-                $captured = [ProxySwitch.Capture.NativeMethods]::PrintWindow($handle, $hdc, 2)
+                $captured = [ProxySwitch.Capture.NativeMethods]::PrintWindow($handle, $hdc, 3)
             }
             finally {
                 $graphics.ReleaseHdc($hdc)
