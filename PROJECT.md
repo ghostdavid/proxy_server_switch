@@ -18,7 +18,7 @@
 - `tools/generate_icons.py`：正式图标维护工具，依赖 Python 与 Pillow；普通运行不需要 Python。`assets/` 保存应用和状态图标。
 - `tools/capture_screenshot.ps1`：使用临时脚本副本、示例配置及模拟读取状态生成 `docs/images/main-window.png`；临时工作目录为 `.release-updater/screenshot/`。使用客户区尺寸与捕获标志排除标题栏和外边框，但仍有前台激活问题，见规则与限制。
 - `tests/`：本地自定义 PowerShell 检查脚本，不是 Pester 套件。`ProxySwitch.Core.Tests.ps1` 检查配置校验、格式化与读写；`ProxySwitch.Exit.Tests.ps1` 模拟代理函数检查退出；`ProxySwitch.Window.Tests.ps1` 检查关闭及最小化隐藏；`ProxySwitch.Launcher.Tests.ps1` 检查已有 EXE 的隐藏控制台、最小化及重复启动。窗口与退出检查使用独立事件名和互斥量，窗口使用示例配置。
-- `README.md`：面向用户的介绍、源码使用说明及必要限制；`project_memory.md`：项目专属事实、文件位置与约束；`VERSION`：显示版本。
+- `README.md`：面向用户的介绍、源码使用说明及必要限制；`PROJECT.md`：项目专属事实、文件位置与约束；`VERSION`：显示版本。
 - `config.example.json`：本地合成示例配置，也供截图工具和部分检查使用；真实配置为源码目录的 `config.json` 或 EXE 目录的 `release/config.json`，不作为记忆材料复制。
 - `.gitignore`：忽略真实配置、示例配置、`release/`、`tests/`、`.release-updater/`、根目录 `tmp/`、`temp/`、`scratch/`、日志、部分临时文件及 `AGENTS.md`。`.gitattributes` 保持 CMD 与 PowerShell 文件使用 CRLF。
 
