@@ -2,12 +2,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Windows Proxy Switch")]
 [assembly: AssemblyProduct("Windows Proxy Switch")]
-[assembly: AssemblyVersion("2026.11.13.0")]
-[assembly: AssemblyFileVersion("2026.11.13.0")]
+[assembly: AssemblyVersion("2026.11.20.0")]
+[assembly: AssemblyFileVersion("2026.11.20.0")]
 
 namespace ProxySwitchLauncher
 {
@@ -86,6 +87,41 @@ namespace ProxySwitchLauncher
                 return;
             }
 
+            string prefix = @"Local\ProxyServerSwitch-" + instanceKey;
+            string eventName = prefix + ".ShowWindow";
+            string mutexName = prefix + ".SingleInstance";
+            try
+            {
+                bool firstLauncher;
+                using (var show = new EventWaitHandle(false, EventResetMode.AutoReset, eventName))
+                using (var gate = new Mutex(false, prefix + ".Launcher", out firstLauncher))
+                {
+                    Mutex scriptMutex;
+                    if (!firstLauncher)
+                    {
+                        show.Set();
+                        return;
+                    }
+                    if (Mutex.TryOpenExisting(mutexName, out scriptMutex))
+                    {
+                        using (scriptMutex) { show.Set(); }
+                        return;
+                    }
+                    RunApplication(eventName, mutexName, smokeTest);
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(
+                    "无法启动代理开关：\n" + exception.Message,
+                    "Windows 代理开关",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static void RunApplication(string eventName, string mutexName, bool smokeTest)
+        {
             string runtimeDirectory = null;
             try
             {
@@ -98,8 +134,6 @@ namespace ProxySwitchLauncher
 
                 string scriptPath = Path.Combine(runtimeDirectory, "ProxySwitch.ps1");
                 string configPath = Path.Combine(baseDirectory, "config.json");
-                string eventName = @"Local\ProxyServerSwitch-" + instanceKey + ".ShowWindow";
-                string mutexName = @"Local\ProxyServerSwitch-" + instanceKey + ".SingleInstance";
                 string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
                 string powerShellPath = Path.Combine(
                     windowsDirectory,
@@ -133,14 +167,6 @@ namespace ProxySwitchLauncher
                         process.WaitForExit();
                     }
                 }
-            }
-            catch (Exception exception)
-            {
-                MessageBox.Show(
-                    "无法启动代理开关：\n" + exception.Message,
-                    "Windows 代理开关",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
             }
             finally
             {

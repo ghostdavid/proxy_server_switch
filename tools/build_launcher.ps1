@@ -35,13 +35,13 @@ $compilerArguments = @(
     '/target:winexe',
     '/platform:anycpu',
     '/optimize+',
-    "/out:`"$output`"",
-    "/win32icon:`"$icon`"",
+    "/out:$output",
+    "/win32icon:$icon",
     '/reference:System.dll',
     '/reference:System.Windows.Forms.dll'
 )
 foreach ($resource in $resources) {
-    $compilerArguments += "/resource:`"$($resource.Path)`",$($resource.Name)"
+    $compilerArguments += "/resource:$($resource.Path),$($resource.Name)"
 }
 $compilerArguments += $source
 
